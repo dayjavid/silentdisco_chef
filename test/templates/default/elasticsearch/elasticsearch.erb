@@ -1,0 +1,104 @@
+#!/bin/bash
+#
+# Elasticsearch        init file for starting up the Elasticsearch daemon
+#
+# chkconfig:   - 20 80
+# description: Starts and stops the Elasticsearch daemon.
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="Elasticsearch 2.2"
+NAME=elasticsearch
+NODENUMBER=<%= @elasticsearch_node_number %>
+NODE="node"${NODENUMBER}
+PIDFILE=/var/run/$NAME_$NODE.pid
+DAEMON=/opt/elasticsearch/${NODE}/bin/$NAME
+DAEMON_ARGS="-d -Des.insecure.allow.root=true -p "$PIDFILE
+SCRIPTNAME=/etc/init.d/$NAME_${NODE}
+LOG=/opt/elasticsearch/${NODE}/elasticsearch_startup.log
+ 
+pid_file_exists() {
+  [ -f "$PIDFILE" ]
+}
+ 
+do_start() {
+  echo "START:"
+  if pid_file_exists
+  then
+    echo "Elasticsearch ${NODE} is already running"
+  else
+    $DAEMON $DAEMON_ARGS 1>"$LOG" 2>&1
+    sleep 3
+    PID=$(cat $PIDFILE)
+    if [ "$PID" > 0 ]
+    then
+      echo "Elasticsearch ${NODE} started with pid "$PID
+    else
+      echo "Elasticsearch ${NODE} could not be started"
+    fi
+  fi
+}
+ 
+ 
+do_status() {
+  echo "STATUS:"
+  if pid_file_exists
+  then
+    PID=$(cat $PIDFILE)
+    STATUS=$(ps ax | grep $PID | grep -v grep | awk '{print $1}')
+ 
+    if [ "$STATUS" == "$PID" ]
+    then
+      echo "Elasticsearch ${NODE} is running on proccess $PID"
+    else
+      echo "Elasticsearch ${NODE} is NOT running"
+      rm $PIDFILE
+    fi
+  else
+    echo "Elasticsearch ${NODE} is NOT running"
+  fi
+}
+ 
+do_stop() {
+  echo "STOP:"
+  if pid_file_exists
+  then
+    PID=$(cat $PIDFILE)
+    STATUS=$(ps ax | grep $PID | grep -v grep | awk '{print $1}')
+ 
+    if [ "$STATUS" == "$PID" ]
+    then
+      echo "Killing Elasticsearch ${NODE}...."
+      KILL=$(kill -15 $PID)
+      rm $PIDFILE
+      sleep 1
+      echo -e "\tElasticsearch ${NODE} (PID:$PID) killed"
+ 
+    else
+      echo "Elasticsearch ${NODE} is NOT running - PID doesn't match STATUS"
+      rm $PIDFILE
+    fi
+  else
+    echo "Elasticsearch ${NODE} is NOT running - No PID file"
+  fi
+}
+ 
+ 
+case "$1" in
+  start)
+    do_start;;
+  stop)
+    do_stop
+;;
+  status)
+    do_status
+;;
+  restart)
+    do_stop
+    do_start
+;;
+*)
+echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
+exit 3
+;;
+esac
+ 
+:
